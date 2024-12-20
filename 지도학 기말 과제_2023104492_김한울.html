@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>내 주변 편의점 찾기</title>
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css" />
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Pretendard Variable', sans-serif;
+            background-color: #212121;
+            color: #ECECEC;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .main-text {
+            font-size: 38px;
+            font-weight: 500;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .message-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #2F2F2F;
+            border-radius: 15px;
+            padding: 10px 20px;
+            width: 60%;
+            max-width: 700px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        input {
+            flex: 1;
+            border: none;
+            background-color: transparent;
+            color: #ECECEC;
+            font-size: 18px;
+            padding: 10px;
+            outline: none;
+            font-family: 'Pretendard Variable', sans-serif;
+        }
+
+        input::placeholder {
+            color: #ECECEC;
+            opacity: 0.7;
+            font-family: 'Pretendard Variable', sans-serif;
+        }
+
+        .send-button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            background-color: #ECECEC;
+            border: none;
+            border-radius: 50%;
+            color: #212121;
+            font-size: 18px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .send-button:hover {
+            background-color: #D4D4D4;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            margin: auto;
+            position: relative;
+        }
+
+        .infowindow-content {
+            font-family: 'Pretendard Variable', sans-serif;
+            color: #212121;
+            font-size: 12px;
+            padding: 5px;
+        }
+
+        .banner {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background-color: #2F2F2F;
+            color: #ECECEC;
+            padding: 10px 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+            font-family: 'Pretendard Variable', sans-serif;
+            z-index: 1000;
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        .reset-button {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: #2F2F2F;
+            color: #ECECEC;
+            padding: 10px 20px;
+            border-radius: 15px;
+            border: none;
+            cursor: pointer;
+            font-family: 'Pretendard Variable', sans-serif;
+            z-index: 1000;
+            font-weight: 500;
+        }
+
+        .reset-button:hover {
+            background-color: #3F3F3F;
+        }
+
+        .refresh-button {
+            position: absolute;
+            bottom: 50px;
+            right: 10px;
+            background-color: #2F2F2F;
+            color: #ECECEC;
+            padding: 10px 20px;
+            border-radius: 15px;
+            border: none;
+            cursor: pointer;
+            font-family: 'Pretendard Variable', sans-serif;
+            z-index: 1000;
+            font-weight: 500;
+        }
+
+        .refresh-button:hover {
+            background-color: #3F3F3F;
+        }
+
+        .clear-button {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background-color: #2F2F2F;
+            color: #ECECEC;
+            padding: 10px 20px;
+            border-radius: 15px;
+            border: none;
+            cursor: pointer;
+            font-family: 'Pretendard Variable', sans-serif;
+            z-index: 1000;
+            font-weight: 500;
+        }
+
+        .clear-button:hover {
+            background-color: #3F3F3F;
+        }
+    </style>
+    <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=ee610510fcbb8c4deb4a042df7e7c586&libraries=services"></script>
+</head>
+<body>
+    <div class="main-text" style="font-weight: bold;">내 주변 편의점 찾기</div>
+    <div class="message-container">
+        <input type="text" id="start-location" placeholder="현재 위치를 입력하세요. 예) 회기역">
+        <button class="send-button" id="find-route-btn">➜</button>
+    </div>
+    <div id="map" style="display:none; width:100%; height:100vh;">
+        <div class="banner" id="search-banner" style="display:none;"></div>
+        <button class="reset-button" id="reset-button" style="display:none;">처음 화면으로</button>
+        <button class="refresh-button" id="refresh-button" style="display:none;">새로고침</button>
+        <button class="clear-button" id="clear-button" style="display:none;">마커 지우기</button>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const refreshButton = document.getElementById('refresh-button');
+            const clearButton = document.getElementById('clear-button');
+            const inputField = document.getElementById('start-location');
+            const findRouteButton = document.getElementById('find-route-btn');
+            const searchBanner = document.getElementById('search-banner');
+            const resetButton = document.getElementById('reset-button');
+            const geocoder = new kakao.maps.services.Geocoder();
+            let map;
+            let markers = [];
+            let mainMarker = null;
+
+            const searchByKeyword = (keyword, callback) => {
+                const ps = new kakao.maps.services.Places();
+                ps.keywordSearch(keyword, (data, status) => {
+                    if (status === kakao.maps.services.Status.OK) {
+                        callback(null, {
+                            lat: data[0].y,
+                            lng: data[0].x
+                        });
+                    } else {
+                        callback(new Error('검색 결과를 찾을 수 없습니다.'));
+                    }
+                });
+            };
+
+            const transitionToMapScreen = () => {
+                const keyword = inputField.value.trim();
+                if (!keyword) {
+                    alert('검색어를 입력해주세요!');
+                    return;
+                }
+                geocoder.addressSearch(keyword, (result, status) => {
+                    if (status === kakao.maps.services.Status.OK) {
+                        const coordinates = {
+                            lat: result[0].y,
+                            lng: result[0].x
+                        };
+                        showMap(coordinates, keyword);
+                    } else {
+                        searchByKeyword(keyword, (error, coordinates) => {
+                            if (error) {
+                                alert(error.message);
+                            } else {
+                                showMap(coordinates, keyword);
+                            }
+                        });
+                    }
+                });
+            };
+
+            const showMap = (coordinates, keyword) => {
+                refreshButton.style.display = 'block';
+                clearButton.style.display = 'block';
+                document.querySelector('.message-container').style.display = 'none';
+                document.querySelector('.main-text').style.display = 'none';
+                document.getElementById('map').style.display = 'block';
+
+                const mapContainer = document.getElementById('map');
+                const mapOption = {
+                    center: new kakao.maps.LatLng(coordinates.lat, coordinates.lng),
+                    level: 3
+                };
+
+                map = new kakao.maps.Map(mapContainer, mapOption);
+
+                if (mainMarker) {
+                    mainMarker.setMap(null);
+                }
+
+                mainMarker = new kakao.maps.Marker({
+                    map: map,
+                    position: new kakao.maps.LatLng(coordinates.lat, coordinates.lng),
+                    image: new kakao.maps.MarkerImage(
+                        'http://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_red.png',
+                        new kakao.maps.Size(32, 32)
+                    )
+                });
+
+                searchConvenienceStores(map);
+                searchBanner.style.display = 'block';
+                searchBanner.textContent = `${keyword} 주변 편의점 검색 결과입니다`;
+                resetButton.style.display = 'block';
+                resetButton.addEventListener('click', () => {
+                    window.location.reload();
+                });
+            };
+
+            refreshButton.addEventListener('click', () => {
+                searchConvenienceStores(map);
+            });
+
+            clearButton.addEventListener('click', () => {
+                markers.forEach(marker => marker.setMap(null));
+                markers = [];
+            });
+
+            const searchConvenienceStores = (map) => {
+                const ps = new kakao.maps.services.Places(map);
+                ps.categorySearch('CS2', (data, status) => {
+                    if (status === kakao.maps.services.Status.OK) {
+                        data.forEach(place => {
+                            const marker = new kakao.maps.Marker({
+                                map: map,
+                                position: new kakao.maps.LatLng(place.y, place.x)
+                            });
+                            markers.push(marker);
+                            const infowindow = new kakao.maps.InfoWindow({
+                                content: `<div class="infowindow-content">${place.place_name}</div>`
+                            });
+                            kakao.maps.event.addListener(marker, 'mouseover', function() {
+                                infowindow.open(map, marker);
+                            });
+                            kakao.maps.event.addListener(marker, 'mouseout', function() {
+                                infowindow.close();
+                            });
+                        });
+                    } else if (status === kakao.maps.services.Status.ZERO_RESULT) {
+                        alert('검색 결과가 없습니다.');
+                    } else {
+                        alert('검색 중 오류가 발생했습니다.');
+                    }
+                }, {useMapBounds: true});
+            };
+
+            findRouteButton.addEventListener('click', transitionToMapScreen);
+            inputField.addEventListener('keypress', (event) => {
+                if (event.key === 'Enter') {
+                    transitionToMapScreen();
+                }
+            });
+        });
+    </script>
+    <footer style="position: absolute; bottom: 10px; font-size: 14px; color: #ECECEC; text-align: center; width: 100%;">2024 지도학. 2023104492 김한울.</footer>
+</body>
+</html>
